@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Moodify - 감성 음악 추천</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --font-display: 'Nunito', sans-serif;
+      --font-body: 'Outfit', sans-serif;
+      --purple: #8A52F3;
+      --pink: #DE359D;
+      --deep: #2D1457;
+      --muted: #7E6E90;
+      --muted-soft: #A396B2;
+      --card-bg: rgba(255, 255, 255, 0.72);
+      --card-border: rgba(138, 82, 243, 0.15);
+    }
+    * { box-sizing: border-box; -webkit-font-smoothing: antialiased; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { display: none; }
+    body {
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #F5E9FF 0%, #FFF4F8 45%, #FFFFFF 75%, #F0FFF4 100%);
+      padding: 20px;
+    }
+    .phone {
+      position: relative; width: 390px; height: 844px;
+      border-radius: 44px; overflow: hidden;
+      box-shadow: 0 32px 80px rgba(124, 111, 239, 0.22), 0 4px 16px rgba(0, 0, 0, 0.08);
+      display: flex; flex-direction: column;
+      background: #FFFFFF;
+    }
+    .statusbar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 32px 4px; pointer-events: none;
+    }
+    .statusbar__time { font-weight: 600; font-size: 14px; color: #5b3d8a; }
+    .statusbar__notch { width: 16px; height: 12px; border-radius: 3px; border: 2px solid #5b3d8a; opacity: 0.7; }
+    
+    .screen {
+      position: absolute; inset: 0; display: none; flex-direction: column; padding-top: 44px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .screen.is-active {
+      display: flex;
+      opacity: 1;
+    }
+
+    button, .icon-btn, .mood-chip, .calendar__cell {
+      transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+    }
+    button:active, .icon-btn:active, .mood-chip:active {
+      transform: scale(0.93) !important;
+    }
+
+    .screen-transition-overlay {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--pink) 0%, var(--purple) 70%, var(--deep) 100%);
+      pointer-events: none;
+      z-index: 40;
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0.95;
+    }
+    .screen-transition-overlay.animate {
+      animation: rippleExpand 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    @keyframes rippleExpand {
+      0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0.95;
+      }
+      70% {
+        opacity: 0.95;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(90);
+        opacity: 0;
+      }
+    }
+
+    .icon-btn {
+      width: 38px; height: 38px; border-radius: 12px;
+      background: rgba(138, 82, 243, 0.10); border: 1.5px solid rgba(138, 82, 243, 0.20);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+      font-size: 16px;
+    }
+    .icon-btn--dark { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.25); }
+    .section-label { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--muted); margin: 20px 0 10px; }
+    .screen--home { background: linear-gradient(145deg, #f3e8ff 0%, #fce7f3 35%, #fff7ed 70%, #ecfdf5 100%); }
+    .home__scroll { flex: 1; overflow-y: auto; padding: 8px 24px 0; }
+    .home__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .home__header-actions { display: flex; gap: 8px; }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand__logo {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 18px; box-shadow: 0 4px 14px rgba(138, 82, 243, 0.4);
+    }
+    .brand__name { font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--deep); }
+    .home__title { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.2; color: var(--deep); }
+    .home__subtitle { font-weight: 400; font-size: 14px; color: var(--muted); margin-top: 4px; }
+    .textarea-card {
+      position: relative; margin-top: 16px;
+      background: var(--card-bg); backdrop-filter: blur(12px);
+      border: 1.5px solid var(--card-border); border-radius: 22px; padding: 16px; height: 130px;
+    }
+    .textarea-card textarea {
+      width: 100%; height: 100%; border: none; outline: none; resize: none;
+      background: transparent; font-family: var(--font-body); font-size: 14.5px; color: var(--deep); line-height: 1.4;
+    }
+    .textarea-card textarea::placeholder { color: var(--muted-soft); }
+    .textarea-card__count { position: absolute; right: 14px; bottom: 10px; font-size: 11px; color: var(--muted-soft); }
+    .mood-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mood-chip {
+      display: flex; align-items: center; gap: 5px; padding: 8px 14px;
+      background: var(--card-bg); border: 1.5px solid var(--card-border);
+      border-radius: 100px; font-family: var(--font-body); font-weight: 500; font-size: 12.5px;
+      color: var(--deep); cursor: pointer;
+    }
+    .mood-chip.is-selected {
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      color: white; border-color: transparent; box-shadow: 0 4px 14px rgba(138, 82, 243, 0.35);
+    }
+    .home__cta { padding: 12px 24px 24px; }
+    .cta-btn {
+      width: 100%; height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; border-radius: 20px;
+      font-family: var(--font-display); font-weight: 700; font-size: 16px; color: white; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(138, 82, 243, 0.35);
+    }
+    .screen--results { background: linear-gradient(160deg, #3b1f6b 0%, #2d1554 50%, #1e0f3d 100%); padding: 44px 20px 0; }
+    .results__header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .results__heading { flex: 1; }
+    .results__mood { font-size: 12.5px; color: #c4b5fd; font-weight: 500; }
+    .results__title { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: white; margin-top: 2px; }
+    .song-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; align-content: start; overflow-y: auto; }
+    .song-card { background: none; border: none; padding: 0; text-align: left; }
+    .song-card__art { position: relative; width: 100%; aspect-ratio: 1; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); cursor: pointer; }
+    .song-card__art img { width: 100%; height: 100%; object-fit: cover; }
+    .song-card__title { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; color: white; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .song-card__artist { font-size: 11.5px; color: #a78bda; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .song-card__play {
+      position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+
+    /* ---- 로그인 / 회원가입 ---- */
+    .screen--auth { background: linear-gradient(145deg, #f3e8ff 0%, #fce7f3 35%, #fff7ed 70%, #ecfdf5 100%); }
+    .auth-scroll { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px; overflow-y: auto; }
+    .auth-logo { text-align: center; margin-bottom: 28px; }
+    .auth-logo .brand__logo { margin: 0 auto 10px; }
+    .auth-title { font-family: var(--font-display); font-weight: 800; font-size: 24px; color: var(--deep); text-align: center; }
+    .auth-subtitle { font-size: 13px; color: var(--muted); text-align: center; margin-top: 6px; margin-bottom: 24px; }
+    .invite-badge { text-align: center; font-size: 12px; color: var(--purple); font-weight: 700; margin: -14px 0 16px; min-height: 16px; }
+    .input-card {
+      position: relative; margin-bottom: 12px;
+      background: var(--card-bg); backdrop-filter: blur(12px);
+      border: 1.5px solid var(--card-border); border-radius: 16px; padding: 4px 16px;
+    }
+    .input-card input {
+      width: 100%; height: 48px; border: none; outline: none;
+      background: transparent; font-family: var(--font-body); font-size: 14.5px; color: var(--deep);
+    }
+    .input-card input::placeholder { color: var(--muted-soft); }
+    .auth-error { color: #d1224b; font-size: 12.5px; text-align: center; min-height: 16px; margin-bottom: 8px; }
+    .auth-switch { text-align: center; font-size: 13px; color: var(--muted); margin-top: 16px; }
+    .auth-switch .link { color: var(--purple); font-weight: 700; cursor: pointer; }
+
+    /* ---- 캘린더 / 친구초대 헤더 ---- */
+    .screen--calendar { background: linear-gradient(145deg, #f3e8ff 0%, #fce7f3 35%, #fff7ed 70%, #ecfdf5 100%); padding: 44px 20px 0; }
+    .calendar__header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .calendar__title { flex: 1; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--deep); }
+    .calendar__nav { display: flex; gap: 6px; }
+    .calendar__weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    .calendar__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .calendar__cell {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border-radius: 12px; font-size: 12.5px; color: var(--deep); background: rgba(255, 255, 255, 0.55); cursor: pointer;
+    }
+    .calendar__cell.is-empty { background: transparent; cursor: default; }
+    .calendar__cell.has-record { background: linear-gradient(135deg, var(--purple), var(--pink)); color: white; font-weight: 700; }
+    .calendar__cell.is-selected { box-shadow: 0 0 0 2px var(--deep) inset; }
+    .calendar__dot { width: 4px; height: 4px; border-radius: 50%; background: white; margin-top: 2px; }
+    .calendar__entries { margin-top: 18px; flex: 1; overflow-y: auto; padding-bottom: 24px; }
+    .calendar__entry { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.85); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }
+    .calendar__entry img { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+    .calendar__entry-info { flex: 1; min-width: 0; }
+    .calendar__entry-title { font-weight: 700; font-size: 13px; color: var(--deep); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .calendar__entry-artist { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .calendar__entry-time { font-size: 11px; color: var(--muted-soft); flex-shrink: 0; }
+    .calendar__empty { text-align: center; color: var(--muted); font-size: 13px; margin-top: 20px; }
+    .diary-card { height: 90px; margin-top: 8px; margin-bottom: 12px; }
+    .diary-save-btn { height: 44px; font-size: 14px; margin-bottom: 14px; }
+
+    /* ---- 친구초대 ---- */
+    .friends-scroll { padding: 0 0 24px; flex: 1; overflow-y: auto; }
+    .friend-item { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.85); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }
+    .friend-item__avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;
+    }
+    .friend-item__name { flex: 1; font-weight: 700; font-size: 13.5px; color: var(--deep); }
+    .friend-item__remove { font-size: 11px; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+  </style>
+</head>
+<body>
+  <div class="phone" id="phoneContainer">
+    <div class="statusbar">
+      <span class="statusbar__time" id="statusClock">9:41</span>
+      <span class="statusbar__notch"></span>
+    </div>
+
+    <!-- 0-A. 로그인 화면 -->
+    <section class="screen screen--auth {{ 'is-active' if not logged_in else '' }}" data-screen="login">
+      <div class="auth-scroll">
+        <div class="auth-logo">
+          <div class="brand__logo">✦</div>
+          <p class="auth-title">moodify</p>
+          <p class="auth-subtitle">감정을 기록하고 음악으로 기억하세요</p>
+        </div>
+        <div class="input-card"><input type="text" id="loginUsername" placeholder="아이디" autocomplete="username" /></div>
+        <div class="input-card"><input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" /></div>
+        <p class="auth-error" id="loginError"></p>
+        <button class="cta-btn" id="loginBtn">로그인</button>
+        <p class="auth-switch">계정이 없으신가요? <span class="link" id="goRegister">회원가입</span></p>
+      </div>
+    </section>
+
+    <!-- 0-B. 회원가입 화면 -->
+    <section class="screen screen--auth" data-screen="register">
+      <div class="auth-scroll">
+        <div class="auth-logo">
+          <div class="brand__logo">✦</div>
+          <p class="auth-title">회원가입</p>
+          <p class="auth-subtitle">나만의 감정 음악 캘린더를 시작해보세요</p>
+        </div>
+        <p class="invite-badge" id="inviteNotice"></p>
+        <div class="input-card"><input type="text" id="registerUsername" placeholder="아이디" autocomplete="username" /></div>
+        <div class="input-card"><input type="password" id="registerPassword" placeholder="비밀번호 (4자 이상)" autocomplete="new-password" /></div>
+        <div class="input-card"><input type="password" id="registerPassword2" placeholder="비밀번호 확인" autocomplete="new-password" /></div>
+        <p class="auth-error" id="registerError"></p>
+        <button class="cta-btn" id="registerBtn">가입하고 시작하기</button>
+        <p class="auth-switch">이미 계정이 있으신가요? <span class="link" id="goLogin">로그인</span></p>
+      </div>
+    </section>
+
+    <!-- 1. 메인 홈 화면 -->
+    <section class="screen screen--home {{ 'is-active' if logged_in else '' }}" data-screen="home">
+      <div class="home__scroll">
+        <header class="home__header">
+          <div class="brand">
+            <span class="brand__logo">✦</span>
+            <span class="brand__name">moodify</span>
+          </div>
+          <div class="home__header-actions">
+            <button class="icon-btn" id="friendsBtn" aria-label="친구초대">👥</button>
+            <button class="icon-btn" id="calendarBtn" aria-label="캘린더">📅</button>
+            <button class="icon-btn" id="logoutBtn" aria-label="로그아웃">🚪</button>
+          </div>
+        </header>
+
+        <h1 class="home__title">What's your<br />mood now?</h1>
+        <p class="home__subtitle">{{ username }}님, 지금 상황이나 기분을 자유롭게 적어보세요</p>
+
+        <div class="textarea-card">
+          <textarea id="situation" maxlength="200" placeholder="예) 한강 공원에서 러닝 중! 상쾌하고 신나는 노래"></textarea>
+          <span class="textarea-card__count"><span id="charCount">0</span>/200</span>
+        </div>
+
+        <p class="section-label">추천 무드 칩</p>
+        <div class="mood-chips">
+          <button class="mood-chip is-selected" data-text="🏃 러닝 중 에너지 넘치는 신나는 노래">🏃 러닝</button>
+          <button class="mood-chip" data-text="🌙 새벽 감성 잔잔하고 차분한 어쿠스틱">🌙 새벽 감성</button>
+          <button class="mood-chip" data-text="☕ 여유로운 오후 카페에서 듣는 음악">☕ 카페</button>
+          <button class="mood-chip" data-text="🌸 설레는 봄 산책할 때 듣는 기분 좋은 음악">🌸 봄 산책</button>
+          <button class="mood-chip" data-text="💫 지친 하루를 위로해주는 힐링 음악">💫 힐링</button>
+        </div>
+
+        <p class="section-label">취향 반영 (선택)</p>
+        <div class="input-card"><input type="text" id="favArtist" placeholder="좋아하는 가수 (예: 아이유, 아이브)" /></div>
+        <div class="input-card"><input type="text" id="favGenre" placeholder="좋아하는 장르 (예: 발라드, 팝, R&B)" /></div>
+      </div>
+
+      <div class="home__cta">
+        <button class="cta-btn" id="submitBtn">
+          음악 찾아보기 →
+        </button>
+      </div>
+    </section>
+
+    <!-- 2. 추천 결과 화면 -->
+    <section class="screen screen--results" data-screen="results">
+      <header class="results__header">
+        <button class="icon-btn icon-btn--dark" id="backBtn" aria-label="뒤로">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="#e9d5ff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="results__heading">
+          <p class="results__mood" id="resultBadge">#무드추천</p>
+          <h2 class="results__title">이런 곡은 어때요?</h2>
+        </div>
+      </header>
+
+      <div class="song-grid" id="songGrid"></div>
+    </section>
+
+    <!-- 3. 캘린더 화면 -->
+    <section class="screen screen--calendar" data-screen="calendar">
+      <header class="calendar__header">
+        <button class="icon-btn" id="calBackBtn" aria-label="뒤로">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="#2D1457" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <p class="calendar__title" id="calendarTitle">2026년 9월</p>
+        <div class="calendar__nav">
+          <button class="icon-btn" id="calPrevBtn" aria-label="이전 달">◀</button>
+          <button class="icon-btn" id="calNextBtn" aria-label="다음 달">▶</button>
+        </div>
+      </header>
+      <div class="calendar__weekdays">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+      <div class="calendar__grid" id="calendarGrid"></div>
+      <div class="calendar__entries" id="calendarEntries"></div>
+    </section>
+
+    <!-- 4. 친구 초대 화면 -->
+    <section class="screen screen--calendar" data-screen="friends">
+      <header class="calendar__header">
+        <button class="icon-btn" id="friendsBackBtn" aria-label="뒤로">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="#2D1457" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <p class="calendar__title">친구 초대</p>
+        <div class="calendar__nav" style="width: 38px;"></div>
+      </header>
+      <div class="friends-scroll">
+        <p class="section-label" style="margin-top: 4px;">내 초대 링크</p>
+        <div class="input-card"><input type="text" id="inviteLink" readonly /></div>
+        <button class="cta-btn" id="copyInviteBtn" style="margin-bottom: 20px;">링크 복사하기</button>
+
+        <p class="section-label">아이디로 친구 추가</p>
+        <div class="input-card"><input type="text" id="addFriendInput" placeholder="친구 아이디 입력" /></div>
+        <p class="auth-error" id="friendsError"></p>
+        <button class="cta-btn" id="addFriendBtn" style="margin-bottom: 20px;">친구 추가</button>
+
+        <p class="section-label">내 친구 목록</p>
+        <div id="friendsListEl"></div>
+      </div>
+    </section>
+  </div>
+
+  <audio id="globalAudio"></audio>
+
+  <script>
+    /* 1. 실시간 시계 타이머 */
+    function updateClock() {
+      const clockEl = document.getElementById("statusClock");
+      if (!clockEl) return;
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      clockEl.textContent = `${hours}:${minutes}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    /* 2. 클릭 위치 기반 원형 그라디언트 리플 트랜지션 */
+    const phoneContainer = document.getElementById("phoneContainer");
+    let isTransitioning = false;
+
+    function transitionToScreen(name, triggerEvent = null) {
+      if (isTransitioning) return;
+      const targetScreen = document.querySelector(`[data-screen="${name}"]`);
+      if (!targetScreen) return;
+
+      if (!triggerEvent) {
+        showScreen(name);
+        return;
+      }
+
+      isTransitioning = true;
+      const rect = phoneContainer.getBoundingClientRect();
+      const clickX = (triggerEvent.clientX || (rect.left + rect.width / 2)) - rect.left;
+      const clickY = (triggerEvent.clientY || (rect.top + rect.height / 2)) - rect.top;
+
+      const ripple = document.createElement("div");
+      ripple.className = "screen-transition-overlay";
+      ripple.style.left = `${clickX}px`;
+      ripple.style.top = `${clickY}px`;
+      phoneContainer.appendChild(ripple);
+
+      requestAnimationFrame(() => {
+        ripple.classList.add("animate");
+      });
+
+      setTimeout(() => {
+        showScreen(name);
+      }, 180);
+
+      setTimeout(() => {
+        if (ripple.parentElement) ripple.remove();
+        isTransitioning = false;
+      }, 420);
+    }
+
+    const IS_LOGGED_IN = {{ 'true' if logged_in else 'false' }};
+    const INITIAL_USERNAME = "{{ username }}";
+    const urlParams = new URLSearchParams(window.location.search);
+    const INVITE_FROM = urlParams.get("invite") || "";
+
+    const situation = document.getElementById("situation");
+    const charCount = document.getElementById("charCount");
+    const submitBtn = document.getElementById("submitBtn");
+    const backBtn = document.getElementById("backBtn");
+    const audio = document.getElementById("globalAudio");
+
+    function escapeHtml(str) {
+      return String(str == null ? "" : str).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    function showScreen(name) {
+      document.querySelectorAll(".screen").forEach(s => s.classList.remove("is-active"));
+      const target = document.querySelector(`[data-screen="${name}"]`);
+      if (target) target.classList.add("is-active");
+      if (name !== "results") { audio.pause(); }
+    }
+
+    if (situation) {
+      situation.addEventListener("input", () => { charCount.textContent = situation.value.length; });
+
+      document.querySelectorAll(".mood-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          document.querySelectorAll(".mood-chip").forEach(c => c.classList.remove("is-selected"));
+          chip.classList.add("is-selected");
+          situation.value = chip.dataset.text;
+          charCount.textContent = situation.value.length;
+        });
+      });
+    }
+
+    backBtn.addEventListener("click", (e) => transitionToScreen("home", e));
+
+    submitBtn.addEventListener("click", async (e) => {
+      const text = situation.value.trim();
+      const favoriteArtist = document.getElementById("favArtist").value.trim();
+      const favoriteGenre = document.getElementById("favGenre").value.trim();
+
+      if (!text) {
+        alert("기분이나 상황을 입력해주세요!");
+        return;
+      }
+
+      submitBtn.textContent = "명곡 큐레이션 중...";
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch("/api/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text, favorite_artist: favoriteArtist, favorite_genre: favoriteGenre })
+        });
+
+        if (response.status === 401) {
+          location.reload();
+          return;
+        }
+
+        const res = await response.json();
+
+        if (res.success && res.songs && res.songs.length > 0) {
+          renderSongs(res.songs, res.analysis);
+          transitionToScreen("results", e);
+        } else {
+          alert(res.message || "음악 추천을 불러오지 못했습니다.");
+        }
+      } catch (err) {
+        alert("서버와의 통신에 실패했습니다.");
+      } finally {
+        submitBtn.textContent = "음악 찾아보기 →";
+        submitBtn.disabled = false;
+      }
+    });
+
+    let currentSongs = [];
+
+    function renderSongs(songs, analysis) {
+      currentSongs = songs;
+      const grid = document.getElementById("songGrid");
+      const badge = document.getElementById("resultBadge");
+      if (analysis) {
+        badge.textContent = `#${escapeHtml(analysis.genre || '대중가요')} #${escapeHtml(analysis.mood || '인기곡')}`;
+      }
+      grid.innerHTML = songs.map((song, idx) => `
+        <div class="song-card">
+          <div class="song-card__art" data-action="youtube" data-index="${idx}">
+            <img src="${song.artwork || song.album_art || 'https://via.placeholder.com/300'}" alt="${escapeHtml(song.title)}" loading="lazy">
+            <span class="song-card__play" data-action="preview" data-index="${idx}">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M5 3.5v9l7-4.5z"/></svg>
+            </span>
+          </div>
+          <p class="song-card__title">${escapeHtml(song.title)}</p>
+          <p class="song-card__artist">${escapeHtml(song.artist)}</p>
+        </div>
+      `).join("");
+
+      grid.querySelectorAll('[data-action="preview"]').forEach(el => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const idx = parseInt(el.getAttribute("data-index"), 10);
+          playSong(currentSongs[idx].preview_url);
+        });
+      });
+
+      grid.querySelectorAll('[data-action="youtube"]').forEach(el => {
+        el.addEventListener("click", () => {
+          const idx = parseInt(el.getAttribute("data-index"), 10);
+          const song = currentSongs[idx];
+          if (song && song.yt_music_url) {
+            window.open(song.yt_music_url, "_blank", "noopener");
+          }
+        });
+      });
+    }
+
+    function playSong(url) {
+      if (!url) {
+        alert("30초 미리듣기 음원이 제공되지 않는 곡입니다.");
+        return;
+      }
+      if (audio.src === url && !audio.paused) {
+        audio.pause();
+      } else {
+        audio.src = url;
+        audio.play();
+      }
+    }
+
+    /* ---------------- 로그인 / 회원가입 ---------------- */
+    const loginBtn = document.getElementById("loginBtn");
+    const registerBtn = document.getElementById("registerBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const goRegister = document.getElementById("goRegister");
+    const goLogin = document.getElementById("goLogin");
+    const inviteNotice = document.getElementById("inviteNotice");
+
+    if (goRegister) goRegister.addEventListener("click", (e) => transitionToScreen("register", e));
+    if (goLogin) goLogin.addEventListener("click", (e) => transitionToScreen("login", e));
+
+    if (!IS_LOGGED_IN && INVITE_FROM) {
+      if (inviteNotice) inviteNotice.textContent = `${INVITE_FROM}님의 초대로 가입해요 🎉`;
+      showScreen("register");
+    }
+
+    if (loginBtn) {
+      loginBtn.addEventListener("click", async () => {
+        const username = document.getElementById("loginUsername").value.trim();
+        const password = document.getElementById("loginPassword").value;
+        const errorEl = document.getElementById("loginError");
+        errorEl.textContent = "";
+        if (!username || !password) { errorEl.textContent = "아이디와 비밀번호를 입력해주세요."; return; }
+
+        try {
+          const res = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await res.json();
+          if (data.success) {
+            location.reload();
+          } else {
+            errorEl.textContent = data.message || "로그인에 실패했습니다.";
+          }
+        } catch (e) {
+          errorEl.textContent = "서버와의 통신에 실패했습니다.";
+        }
+      });
+    }
+
+    if (registerBtn) {
+      registerBtn.addEventListener("click", async () => {
+        const username = document.getElementById("registerUsername").value.trim();
+        const password = document.getElementById("registerPassword").value;
+        const password2 = document.getElementById("registerPassword2").value;
+        const errorEl = document.getElementById("registerError");
+        errorEl.textContent = "";
+        if (!username || !password) { errorEl.textContent = "아이디와 비밀번호를 입력해주세요."; return; }
+        if (password !== password2) { errorEl.textContent = "비밀번호가 일치하지 않습니다."; return; }
+
+        try {
+          const res = await fetch("/api/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password, invited_by: INVITE_FROM })
+          });
+          const data = await res.json();
+          if (data.success) {
+            location.reload();
+          } else {
+            errorEl.textContent = data.message || "회원가입에 실패했습니다.";
+          }
+        } catch (e) {
+          errorEl.textContent = "서버와의 통신에 실패했습니다.";
+        }
+      });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        await fetch("/api/logout", { method: "POST" });
+        location.reload();
+      });
+    }
+
+    /* ---------------- 캘린더 + 일기 메모 ---------------- */
+    const calendarBtn = document.getElementById("calendarBtn");
+    const calBackBtn = document.getElementById("calBackBtn");
+    const calPrevBtn = document.getElementById("calPrevBtn");
+    const calNextBtn = document.getElementById("calNextBtn");
+
+    const calState = {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      data: {},
+      notes: {}
+    };
+
+    function pad2(n) { return String(n).padStart(2, "0"); }
+
+    async function loadCalendar() {
+      const grid = document.getElementById("calendarGrid");
+      const entries = document.getElementById("calendarEntries");
+      const title = document.getElementById("calendarTitle");
+      title.textContent = `${calState.year}년 ${calState.month}월`;
+      grid.innerHTML = "";
+      entries.innerHTML = "";
+
+      try {
+        const [calRes, diaryRes] = await Promise.all([
+          fetch(`/api/calendar?year=${calState.year}&month=${calState.month}`),
+          fetch(`/api/diary/month?year=${calState.year}&month=${calState.month}`)
+        ]);
+        if (calRes.status === 401 || diaryRes.status === 401) { location.reload(); return; }
+        const calData = await calRes.json();
+        const diaryData = await diaryRes.json();
+        calState.data = (calData.success && calData.calendar) ? calData.calendar : {};
+        calState.notes = (diaryData.success && diaryData.notes) ? diaryData.notes : {};
+      } catch (e) {
+        calState.data = {};
+        calState.notes = {};
+      }
+
+      const firstDay = new Date(calState.year, calState.month - 1, 1).getDay();
+      const daysInMonth = new Date(calState.year, calState.month, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement("div");
+        empty.className = "calendar__cell is-empty";
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateKey = `${calState.year}-${pad2(calState.month)}-${pad2(d)}`;
+        const cell = document.createElement("div");
+        cell.className = "calendar__cell";
+        const hasRecord = !!calState.data[dateKey] || !!(calState.notes[dateKey] && calState.notes[dateKey].trim());
+        if (hasRecord) cell.classList.add("has-record");
+        cell.innerHTML = `${d}` + (hasRecord ? '<span class="calendar__dot"></span>' : "");
+        cell.addEventListener("click", () => selectDate(dateKey, cell));
+        grid.appendChild(cell);
+      }
+
+      entries.innerHTML = '<p class="calendar__empty">날짜를 선택해서 기록을 확인해보세요</p>';
+    }
+
+    function selectDate(dateKey, cellEl) {
+      document.querySelectorAll(".calendar__cell").forEach(c => c.classList.remove("is-selected"));
+      if (cellEl) cellEl.classList.add("is-selected");
+
+      const entries = document.getElementById("calendarEntries");
+      const records = calState.data[dateKey] || [];
+      const note = calState.notes[dateKey] || "";
+
+      let songsHtml;
+      if (records.length > 0) {
+        songsHtml = records.map(r => `
+          <div class="calendar__entry">
+            <img src="${r.artwork || 'https://via.placeholder.com/80'}" alt="${escapeHtml(r.title)}">
+            <div class="calendar__entry-info">
+              <p class="calendar__entry-title">${escapeHtml(r.title)}</p>
+              <p class="calendar__entry-artist">${escapeHtml(r.artist)} · ${escapeHtml(r.mood)}</p>
+            </div>
+            <span class="calendar__entry-time">${escapeHtml(r.time)}</span>
+          </div>
+        `).join("");
+      } else {
+        songsHtml = '<p class="calendar__empty">이 날 들은 음악이 없어요</p>';
+      }
+
+      entries.innerHTML = `
+        <p class="section-label" style="margin-top: 4px;">이 날의 일기 기록</p>
+        <div class="textarea-card diary-card">
+          <textarea id="diaryNote" maxlength="300" placeholder="오늘 있었던 일이나 감정을 짧게 남겨보세요">${escapeHtml(note)}</textarea>
+        </div>
+        <button class="cta-btn diary-save-btn" id="diarySaveBtn">일기 저장</button>
+        <p class="auth-error" id="diarySavedMsg" style="color: var(--purple);"></p>
+        
+        <p class="section-label" style="margin-top: 14px;">청취한 음악</p>
+        ${songsHtml}
+      `;
+
+      document.getElementById("diarySaveBtn").addEventListener("click", async () => {
+        const textEl = document.getElementById("diaryNote");
+        const msgEl = document.getElementById("diarySavedMsg");
+        try {
+          const res = await fetch("/api/diary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: dateKey, note: textEl.value })
+          });
+          const data = await res.json();
+          if (data.success) {
+            calState.notes[dateKey] = textEl.value;
+            msgEl.style.color = "var(--purple)";
+            msgEl.textContent = "저장했어요 ✓";
+            if (cellEl && textEl.value.trim()) cellEl.classList.add("has-record");
+            setTimeout(() => { msgEl.textContent = ""; }, 1500);
+          } else {
+            msgEl.style.color = "#d1224b";
+            msgEl.textContent = data.message || "저장에 실패했습니다.";
+          }
+        } catch (e) {
+          msgEl.style.color = "#d1224b";
+          msgEl.textContent = "서버와의 통신에 실패했습니다.";
+        }
+      });
+    }
+
+    if (calendarBtn) {
+      calendarBtn.addEventListener("click", (e) => {
+        transitionToScreen("calendar", e);
+        loadCalendar();
+      });
+    }
+    if (calBackBtn) calBackBtn.addEventListener("click", (e) => transitionToScreen("home", e));
+    if (calPrevBtn) {
+      calPrevBtn.addEventListener("click", () => {
+        calState.month -= 1;
+        if (calState.month < 1) { calState.month = 12; calState.year -= 1; }
+        loadCalendar();
+      });
+    }
+    if (calNextBtn) {
+      calNextBtn.addEventListener("click", () => {
+        calState.month += 1;
+        if (calState.month > 12) { calState.month = 1; calState.year += 1; }
+        loadCalendar();
+      });
+    }
+
+    /* ---------------- 친구 초대 ---------------- */
+    const friendsBtn = document.getElementById("friendsBtn");
+    const friendsBackBtn = document.getElementById("friendsBackBtn");
+    const copyInviteBtn = document.getElementById("copyInviteBtn");
+    const addFriendBtn = document.getElementById("addFriendBtn");
+    const inviteLinkInput = document.getElementById("inviteLink");
+
+    if (inviteLinkInput && IS_LOGGED_IN) {
+      inviteLinkInput.value = `${window.location.origin}/?invite=${encodeURIComponent(INITIAL_USERNAME)}`;
+    }
+
+    if (friendsBtn) {
+      friendsBtn.addEventListener("click", (e) => {
+        transitionToScreen("friends", e);
+        loadFriends();
+      });
+    }
+    if (friendsBackBtn) friendsBackBtn.addEventListener("click", (e) => transitionToScreen("home", e));
+
+    if (copyInviteBtn) {
+      copyInviteBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(inviteLinkInput.value);
+        } catch (e) {
+          inviteLinkInput.removeAttribute("readonly");
+          inviteLinkInput.select();
+          document.execCommand("copy");
+          inviteLinkInput.setAttribute("readonly", "true");
+        }
+        const original = copyInviteBtn.textContent;
+        copyInviteBtn.textContent = "복사 완료!";
+        setTimeout(() => { copyInviteBtn.textContent = original; }, 1500);
+      });
+    }
+
+    async function loadFriends() {
+      const listEl = document.getElementById("friendsListEl");
+      listEl.innerHTML = "";
+      try {
+        const res = await fetch("/api/friends");
+        if (res.status === 401) { location.reload(); return; }
+        const data = await res.json();
+        const friends = (data.success && data.friends) ? data.friends : [];
+        if (friends.length === 0) {
+          listEl.innerHTML = '<p class="calendar__empty">아직 추가된 친구가 없어요</p>';
+          return;
+        }
+        listEl.innerHTML = friends.map(f => `
+          <div class="friend-item">
+            <div class="friend-item__avatar">${escapeHtml((f.username || "?").charAt(0).toUpperCase())}</div>
+            <span class="friend-item__name">${escapeHtml(f.username)}</span>
+            <span class="friend-item__remove" data-remove="${f.id}">삭제</span>
+          </div>
+        `).join("");
+
+        listEl.querySelectorAll("[data-remove]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const fid = btn.getAttribute("data-remove");
+            await fetch(`/api/friends/${fid}`, { method: "DELETE" });
+            loadFriends();
+          });
+        });
+      } catch (e) {
+        listEl.innerHTML = '<p class="calendar__empty">친구 목록을 불러오지 못했어요</p>';
+      }
+    }
+
+    if (addFriendBtn) {
+      addFriendBtn.addEventListener("click", async () => {
+        const input = document.getElementById("addFriendInput");
+        const errorEl = document.getElementById("friendsError");
+        const username = input.value.trim();
+        errorEl.textContent = "";
+        if (!username) { errorEl.textContent = "친구 아이디를 입력해주세요."; return; }
+
+        try {
+          const res = await fetch("/api/friends/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username })
+          });
+          const data = await res.json();
+          if (data.success) {
+            input.value = "";
+            loadFriends();
+          } else {
+            errorEl.textContent = data.message || "친구 추가에 실패했습니다.";
+          }
+        } catch (e) {
+          errorEl.textContent = "서버와의 통신에 실패했습니다.";
+        }
+      });
+    }
+  </script>
+</body>
+</html>

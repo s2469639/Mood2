@@ -1,0 +1,26 @@
+# Security & Environment Variables
+.env
+.env.local
+*.env
+
+# SQLite & Runtime Databases
+*.db
+*.sqlite
+*.sqlite3
+moodify.db
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
